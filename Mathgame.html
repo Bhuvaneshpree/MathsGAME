@@ -1,0 +1,335 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Math Bubble Order</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .game-container {
+            background: #2563eb;
+            border-radius: 20px;
+            padding: 40px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            max-width: 800px;
+            width: 100%;
+        }
+
+        h1 {
+            color: white;
+            text-align: center;
+            margin-bottom: 15px;
+            font-size: 2em;
+        }
+
+        .instructions {
+            color: rgba(255, 255, 255, 0.9);
+            text-align: center;
+            margin-bottom: 30px;
+            font-size: 1.1em;
+        }
+
+        .bubbles-container {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 20px;
+            flex-wrap: wrap;
+            min-height: 200px;
+            margin-bottom: 30px;
+        }
+
+        .bubble {
+            width: 120px;
+            height: 120px;
+            background: white;
+            border-radius: 50%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 1.4em;
+            font-weight: bold;
+            color: #1e293b;
+            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.2);
+            cursor: grab;
+            transition: transform 0.2s, box-shadow 0.2s;
+            user-select: none;
+        }
+
+        .bubble:hover {
+            transform: translateY(-5px) scale(1.05);
+            box-shadow: 0 12px 30px rgba(0, 0, 0, 0.3);
+        }
+
+        .bubble.dragging {
+            opacity: 0.5;
+            cursor: grabbing;
+        }
+
+        .bubble.drag-over {
+            transform: scale(1.1);
+            box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.5);
+        }
+
+        .controls {
+            display: flex;
+            justify-content: center;
+            gap: 15px;
+            flex-wrap: wrap;
+        }
+
+        button {
+            background: white;
+            color: #2563eb;
+            border: none;
+            padding: 15px 40px;
+            font-size: 1.1em;
+            font-weight: bold;
+            border-radius: 50px;
+            cursor: pointer;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+            transition: all 0.3s;
+        }
+
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.3);
+        }
+
+        button:active {
+            transform: translateY(0);
+        }
+
+        .result {
+            text-align: center;
+            margin-top: 20px;
+            font-size: 1.5em;
+            font-weight: bold;
+            color: white;
+            min-height: 40px;
+        }
+
+        .result.correct {
+            color: #4ade80;
+            text-shadow: 0 2px 10px rgba(74, 222, 128, 0.5);
+        }
+
+        .result.incorrect {
+            color: #f87171;
+            text-shadow: 0 2px 10px rgba(248, 113, 113, 0.5);
+        }
+
+        @media (max-width: 600px) {
+            .game-container {
+                padding: 25px;
+            }
+
+            h1 {
+                font-size: 1.5em;
+            }
+
+            .bubble {
+                width: 100px;
+                height: 100px;
+                font-size: 1.2em;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="game-container">
+        <h1>🧮 Math Bubble Order</h1>
+        <p class="instructions">Drag the bubbles to arrange them from smallest to largest answer!</p>
+        
+        <div class="bubbles-container" id="bubblesContainer"></div>
+        
+        <div class="controls">
+            <button id="checkBtn">Check Answer</button>
+            <button id="newGameBtn">New Game</button>
+        </div>
+        
+        <div class="result" id="result"></div>
+    </div>
+
+    <script>
+        let problems = [];
+        let draggedElement = null;
+
+        function generateProblems() {
+            const count = Math.floor(Math.random() * 3) + 3; // 3 to 5 problems
+            const problemsList = [];
+            const operators = ['+', '-', '*', '/'];
+
+            for (let i = 0; i < count; i++) {
+                let a, b, operator, expression, answer;
+                
+                do {
+                    operator = operators[Math.floor(Math.random() * operators.length)];
+                    
+                    switch(operator) {
+                        case '+':
+                            a = Math.floor(Math.random() * 15) + 1;
+                            b = Math.floor(Math.random() * 15) + 1;
+                            answer = a + b;
+                            break;
+                        case '-':
+                            a = Math.floor(Math.random() * 20) + 5;
+                            b = Math.floor(Math.random() * a) + 1;
+                            answer = a - b;
+                            break;
+                        case '*':
+                            a = Math.floor(Math.random() * 10) + 2;
+                            b = Math.floor(Math.random() * 10) + 2;
+                            answer = a * b;
+                            break;
+                        case '/':
+                            b = Math.floor(Math.random() * 9) + 2;
+                            answer = Math.floor(Math.random() * 10) + 1;
+                            a = b * answer;
+                            break;
+                    }
+                    expression = `${a} ${operator} ${b}`;
+                } while (problemsList.some(p => p.answer === answer));
+                
+                problemsList.push({ expression, answer });
+            }
+
+            return problemsList;
+        }
+
+        function shuffleArray(array) {
+            const shuffled = [...array];
+            for (let i = shuffled.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+            }
+            return shuffled;
+        }
+
+        function initGame() {
+            problems = generateProblems();
+            const shuffled = shuffleArray(problems);
+            renderBubbles(shuffled);
+            document.getElementById('result').textContent = '';
+        }
+
+        function renderBubbles(problemsList) {
+            const container = document.getElementById('bubblesContainer');
+            container.innerHTML = '';
+
+            problemsList.forEach((problem, index) => {
+                const bubble = document.createElement('div');
+                bubble.className = 'bubble';
+                bubble.textContent = problem.expression;
+                bubble.draggable = true;
+                bubble.dataset.answer = problem.answer;
+                bubble.dataset.index = index;
+
+                bubble.addEventListener('dragstart', handleDragStart);
+                bubble.addEventListener('dragend', handleDragEnd);
+                bubble.addEventListener('dragover', handleDragOver);
+                bubble.addEventListener('drop', handleDrop);
+                bubble.addEventListener('dragenter', handleDragEnter);
+                bubble.addEventListener('dragleave', handleDragLeave);
+
+                container.appendChild(bubble);
+            });
+        }
+
+        function handleDragStart(e) {
+            draggedElement = this;
+            this.classList.add('dragging');
+            e.dataTransfer.effectAllowed = 'move';
+        }
+
+        function handleDragEnd(e) {
+            this.classList.remove('dragging');
+            document.querySelectorAll('.bubble').forEach(bubble => {
+                bubble.classList.remove('drag-over');
+            });
+        }
+
+        function handleDragOver(e) {
+            if (e.preventDefault) {
+                e.preventDefault();
+            }
+            e.dataTransfer.dropEffect = 'move';
+            return false;
+        }
+
+        function handleDragEnter(e) {
+            if (this !== draggedElement) {
+                this.classList.add('drag-over');
+            }
+        }
+
+        function handleDragLeave(e) {
+            this.classList.remove('drag-over');
+        }
+
+        function handleDrop(e) {
+            if (e.stopPropagation) {
+                e.stopPropagation();
+            }
+
+            if (draggedElement !== this) {
+                const container = document.getElementById('bubblesContainer');
+                const allBubbles = [...container.children];
+                const draggedIndex = allBubbles.indexOf(draggedElement);
+                const targetIndex = allBubbles.indexOf(this);
+
+                if (draggedIndex < targetIndex) {
+                    container.insertBefore(draggedElement, this.nextSibling);
+                } else {
+                    container.insertBefore(draggedElement, this);
+                }
+            }
+
+            this.classList.remove('drag-over');
+            return false;
+        }
+
+        function checkAnswer() {
+            const bubbles = document.querySelectorAll('.bubble');
+            const currentOrder = Array.from(bubbles).map(bubble => 
+                parseInt(bubble.dataset.answer)
+            );
+
+            const isCorrect = currentOrder.every((answer, index) => {
+                if (index === 0) return true;
+                return answer >= currentOrder[index - 1];
+            });
+
+            const resultDiv = document.getElementById('result');
+            if (isCorrect) {
+                resultDiv.textContent = 'Correct! ✅';
+                resultDiv.className = 'result correct';
+            } else {
+                resultDiv.textContent = 'Try Again ❌';
+                resultDiv.className = 'result incorrect';
+            }
+        }
+
+        document.getElementById('checkBtn').addEventListener('click', checkAnswer);
+        document.getElementById('newGameBtn').addEventListener('click', initGame);
+
+        // Initialize game on load
+        initGame();
+    </script>
+</body>
+</html>
