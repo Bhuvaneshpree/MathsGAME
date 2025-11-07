@@ -60,15 +60,17 @@
             background: white;
             border-radius: 50%;
             display: flex;
+            flex-direction: column;
             justify-content: center;
             align-items: center;
             font-size: 1.4em;
             font-weight: bold;
             color: #1e293b;
             box-shadow: 0 8px 20px rgba(0, 0, 0, 0.2);
-            cursor: grab;
-            transition: transform 0.2s, box-shadow 0.2s;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s, background-color 0.3s;
             user-select: none;
+            position: relative;
         }
 
         .bubble:hover {
@@ -76,14 +78,33 @@
             box-shadow: 0 12px 30px rgba(0, 0, 0, 0.3);
         }
 
-        .bubble.dragging {
-            opacity: 0.5;
-            cursor: grabbing;
+        .bubble.selected {
+            background: #4ade80;
+            color: white;
+            transform: scale(1.1);
+            box-shadow: 0 0 0 4px rgba(74, 222, 128, 0.5);
         }
 
-        .bubble.drag-over {
-            transform: scale(1.1);
-            box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.5);
+        .bubble .order-number {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background: #2563eb;
+            color: white;
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 0.7em;
+            font-weight: bold;
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+
+        .bubble.selected .order-number {
+            opacity: 1;
         }
 
         .controls {
@@ -113,6 +134,11 @@
 
         button:active {
             transform: translateY(0);
+        }
+
+        button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
         }
 
         .result {
@@ -154,12 +180,13 @@
 <body>
     <div class="game-container">
         <h1>🧮 Math Bubble Order</h1>
-        <p class="instructions">Drag the bubbles to arrange them from smallest to largest answer!</p>
+        <p class="instructions">Click the bubbles in order from smallest to largest answer!</p>
         
         <div class="bubbles-container" id="bubblesContainer"></div>
         
         <div class="controls">
             <button id="checkBtn">Check Answer</button>
+            <button id="resetBtn">Reset Order</button>
             <button id="newGameBtn">New Game</button>
         </div>
         
@@ -168,7 +195,7 @@
 
     <script>
         let problems = [];
-        let draggedElement = null;
+        let selectedOrder = [];
 
         function generateProblems() {
             const count = Math.floor(Math.random() * 3) + 3; // 3 to 5 problems
@@ -206,7 +233,7 @@
                     expression = `${a} ${operator} ${b}`;
                 } while (problemsList.some(p => p.answer === answer));
                 
-                problemsList.push({ expression, answer });
+                problemsList.push({ expression, answer, id: i });
             }
 
             return problemsList;
@@ -224,6 +251,7 @@
         function initGame() {
             problems = generateProblems();
             const shuffled = shuffleArray(problems);
+            selectedOrder = [];
             renderBubbles(shuffled);
             document.getElementById('result').textContent = '';
         }
@@ -232,87 +260,80 @@
             const container = document.getElementById('bubblesContainer');
             container.innerHTML = '';
 
-            problemsList.forEach((problem, index) => {
+            problemsList.forEach((problem) => {
                 const bubble = document.createElement('div');
                 bubble.className = 'bubble';
-                bubble.textContent = problem.expression;
-                bubble.draggable = true;
                 bubble.dataset.answer = problem.answer;
-                bubble.dataset.index = index;
-
-                bubble.addEventListener('dragstart', handleDragStart);
-                bubble.addEventListener('dragend', handleDragEnd);
-                bubble.addEventListener('dragover', handleDragOver);
-                bubble.addEventListener('drop', handleDrop);
-                bubble.addEventListener('dragenter', handleDragEnter);
-                bubble.addEventListener('dragleave', handleDragLeave);
-
+                bubble.dataset.id = problem.id;
+                
+                const expression = document.createElement('div');
+                expression.textContent = problem.expression;
+                
+                const orderNumber = document.createElement('div');
+                orderNumber.className = 'order-number';
+                
+                bubble.appendChild(expression);
+                bubble.appendChild(orderNumber);
+                
+                bubble.addEventListener('click', () => handleBubbleClick(bubble, problem));
+                
                 container.appendChild(bubble);
             });
         }
 
-        function handleDragStart(e) {
-            draggedElement = this;
-            this.classList.add('dragging');
-            e.dataTransfer.effectAllowed = 'move';
+        function handleBubbleClick(bubble, problem) {
+            const bubbleId = problem.id;
+            const index = selectedOrder.findIndex(item => item.id === bubbleId);
+            
+            if (index !== -1) {
+                // Bubble already selected - deselect it
+                selectedOrder.splice(index, 1);
+                bubble.classList.remove('selected');
+                
+                // Update all order numbers
+                updateOrderNumbers();
+            } else {
+                // Select the bubble
+                selectedOrder.push(problem);
+                bubble.classList.add('selected');
+                bubble.querySelector('.order-number').textContent = selectedOrder.length;
+            }
+            
+            document.getElementById('result').textContent = '';
         }
 
-        function handleDragEnd(e) {
-            this.classList.remove('dragging');
+        function updateOrderNumbers() {
             document.querySelectorAll('.bubble').forEach(bubble => {
-                bubble.classList.remove('drag-over');
+                const bubbleId = parseInt(bubble.dataset.id);
+                const index = selectedOrder.findIndex(item => item.id === bubbleId);
+                
+                if (index !== -1) {
+                    bubble.querySelector('.order-number').textContent = index + 1;
+                } else {
+                    bubble.classList.remove('selected');
+                }
             });
         }
 
-        function handleDragOver(e) {
-            if (e.preventDefault) {
-                e.preventDefault();
-            }
-            e.dataTransfer.dropEffect = 'move';
-            return false;
-        }
-
-        function handleDragEnter(e) {
-            if (this !== draggedElement) {
-                this.classList.add('drag-over');
-            }
-        }
-
-        function handleDragLeave(e) {
-            this.classList.remove('drag-over');
-        }
-
-        function handleDrop(e) {
-            if (e.stopPropagation) {
-                e.stopPropagation();
-            }
-
-            if (draggedElement !== this) {
-                const container = document.getElementById('bubblesContainer');
-                const allBubbles = [...container.children];
-                const draggedIndex = allBubbles.indexOf(draggedElement);
-                const targetIndex = allBubbles.indexOf(this);
-
-                if (draggedIndex < targetIndex) {
-                    container.insertBefore(draggedElement, this.nextSibling);
-                } else {
-                    container.insertBefore(draggedElement, this);
-                }
-            }
-
-            this.classList.remove('drag-over');
-            return false;
+        function resetOrder() {
+            selectedOrder = [];
+            document.querySelectorAll('.bubble').forEach(bubble => {
+                bubble.classList.remove('selected');
+            });
+            document.getElementById('result').textContent = '';
         }
 
         function checkAnswer() {
-            const bubbles = document.querySelectorAll('.bubble');
-            const currentOrder = Array.from(bubbles).map(bubble => 
-                parseInt(bubble.dataset.answer)
-            );
+            if (selectedOrder.length !== problems.length) {
+                const resultDiv = document.getElementById('result');
+                resultDiv.textContent = 'Please click all bubbles! 🫧';
+                resultDiv.className = 'result';
+                return;
+            }
 
-            const isCorrect = currentOrder.every((answer, index) => {
+            const isCorrect = selectedOrder.every((problem, index) => {
                 if (index === 0) return true;
-                return answer >= currentOrder[index - 1];
+                return problem.answer >= selectedOrder[index - 1].answer;
             });
 
             const resultDiv = document.getElementById('result');
@@ -326,6 +347,7 @@
         }
 
         document.getElementById('checkBtn').addEventListener('click', checkAnswer);
+        document.getElementById('resetBtn').addEventListener('click', resetOrder);
         document.getElementById('newGameBtn').addEventListener('click', initGame);
 
         // Initialize game on load
